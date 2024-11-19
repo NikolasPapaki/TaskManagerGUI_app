@@ -61,14 +61,6 @@ class SettingsFrame(ctk.CTkFrame):
         )
         self.sidebar_position_switch.pack(pady=10, anchor="w", padx=20)
 
-        # # "Check for Update" button
-        # self.update_button = ctk.CTkButton(
-        #     body_frame,
-        #     text="Check for Update",
-        #     command=self.check_for_updates
-        # )
-        # self.update_button.pack(pady=10, anchor="w", padx=20)
-
         # Credentials frame
         credential_frame = ctk.CTkFrame(body_frame)
         credential_frame.pack(pady=(10, 5), padx=10, fill="x")
@@ -193,6 +185,27 @@ class SettingsFrame(ctk.CTkFrame):
         if user_response == "restart_now":
             restart_application_executable()  # Restart the application
 
+
+    # def check_for_updates(self):
+    #     needs_update, latest_version = self.updater.check_for_updates()
+    #
+    #     if needs_update:
+    #         user_response = messagebox.askyesno(
+    #             "Update Available",
+    #             f"A new version ({latest_version}) is available. Would you like to download the update?"
+    #         )
+    #         if user_response:
+    #             self.download_update()
+    #     else:
+    #         messagebox.showinfo("Up to Date", "Your application is already up to date.")
+    #
+    # def download_update(self):
+    #     try:
+    #         self.updater.update_application()
+    #     except Exception as e:
+    #         messagebox.showerror("Error!", "Error checking for updates.")
+    #         print(f"Error: {e}")
+
     def load_debugger_directory(self):
         settings = self.settings
         if "debugger_root_directory" in settings:
@@ -214,23 +227,3 @@ class SettingsFrame(ctk.CTkFrame):
 
         # Confirmation message
         messagebox.showinfo("Settings Saved", "Your settings have been saved successfully.")
-
-    # def check_for_updates(self):
-    #     needs_update, latest_version = self.updater.check_for_updates()
-    #
-    #     if needs_update:
-    #         user_response = messagebox.askyesno(
-    #             "Update Available",
-    #             f"A new version ({latest_version}) is available. Would you like to download the update?"
-    #         )
-    #         if user_response:
-    #             self.download_update()
-    #     else:
-    #         messagebox.showinfo("Up to Date", "Your application is already up to date.")
-    #
-    # def download_update(self):
-    #     try:
-    #         self.updater.update_application()
-    #     except Exception as e:
-    #         messagebox.showerror("Error!", "Error checking for updates.")
-    #         print(f"Error: {e}")

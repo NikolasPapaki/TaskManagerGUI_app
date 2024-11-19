@@ -15,7 +15,6 @@ else:  # Fallback for normal Python execution
 import requests
 requests.utils.DEFAULT_CA_BUNDLE_PATH = certifi_path
 
-
 # EXECUTABLE_NAME = "python main.py"
 EXECUTABLE_NAME = "TaskManager.exe"
 VERSION = "v3.0.0"
@@ -94,4 +93,7 @@ class Update_module:
         latest_version, zipball_url = self.get_latest_version()
         zip_path = self.download_zipball(zipball_url)
         self.extract_zip(zip_path)
-        restart_application_executable()
+        self.restart_application()
+
+    def restart_application(self):
+        restart_application(self.executable_name)

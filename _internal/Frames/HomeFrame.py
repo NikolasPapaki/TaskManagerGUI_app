@@ -1,6 +1,5 @@
 import customtkinter as ctk
 
-
 class HomeFrame(ctk.CTkFrame):
     ORDER = 1
     def __init__(self, parent):
@@ -10,3 +9,4 @@ class HomeFrame(ctk.CTkFrame):
 
         label = ctk.CTkLabel(self, text="Welcome to the Task Manger GUI", font=("Arial", 24))
         label.pack(pady=20)
+

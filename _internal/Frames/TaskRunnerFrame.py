@@ -1,27 +1,16 @@
-from logging import exception
-from multiprocessing.forkserver import read_signed
-
 import customtkinter as ctk
 import subprocess
 import threading
 import tkinter.messagebox as messagebox
-import json
-import os
 import time
 from datetime import datetime
+import re
+from SharedObjects import Tasks  # Import the shared Tasks object
 
-def load_tasks():
-    """Load tasks from the JSON file and return a list of tasks."""
-    if not os.path.exists("tasks.json"):
-        return []
 
-    try:
-        with open("tasks.json", "r") as file:
-            data = json.load(file)
-            return data.get("tasks", [])
-    except json.JSONDecodeError:
-        messagebox.showerror("Error", "There was an error loading the task file")
-        return []
+def task_name_sanitize(task_name) -> str:
+    """Sanitize the task name by replacing invalid characters with underscores."""
+    return re.sub(r'[\\/:"*?<>|]', '_', task_name)
 
 
 class TaskRunnerFrame(ctk.CTkFrame):
@@ -34,8 +23,8 @@ class TaskRunnerFrame(ctk.CTkFrame):
         label = ctk.CTkLabel(self, text="Task Runner", font=("Arial", 24))
         label.pack(pady=20)
 
-        # Load tasks from the JSON file
-        self.tasks = load_tasks()
+        # Initialize the shared Tasks object and pass a callback to it
+        self.tasks_manager = Tasks()
 
         # Create a label for the search entry
         search_label = ctk.CTkLabel(self, text="Search tasks by name:", font=("Arial", 14))
@@ -57,7 +46,6 @@ class TaskRunnerFrame(ctk.CTkFrame):
         self.progress_bar.pack(fill=ctk.X, padx=10, pady=(5, 10))
         self.progress_bar.set(0)
 
-        # Dynamically create buttons for each task
         self.create_task_buttons()
 
         # Debounce mechanism
@@ -69,7 +57,7 @@ class TaskRunnerFrame(ctk.CTkFrame):
         current_time = time.time()
         if current_time - self.last_search_time >= self.debounce_delay:
             self.last_search_time = current_time
-            self.update_task_buttons()
+            self.create_task_buttons()
         else:
             # If the user is typing too fast, just wait
             pass
@@ -86,7 +74,11 @@ class TaskRunnerFrame(ctk.CTkFrame):
 
     def create_buttons_thread(self, search_text):
         """Create buttons in a background thread to avoid blocking the UI."""
-        filtered_tasks = [task for task in self.tasks if search_text in task["name"].lower()]
+        # Get tasks from the shared Tasks object
+        tasks = self.tasks_manager.get_tasks()
+
+        # Filter tasks based on the search text
+        filtered_tasks = [task for task in tasks if search_text in task["name"].lower()]
 
         # Create the buttons in the UI thread
         self.after(0, self.update_buttons_in_ui, filtered_tasks)
@@ -104,10 +96,6 @@ class TaskRunnerFrame(ctk.CTkFrame):
                 )
                 button.pack(pady=5, padx=10, fill=ctk.X)
 
-    def update_task_buttons(self):
-        """Update the displayed task buttons based on search criteria."""
-        self.create_task_buttons()
-
     def run_commands(self, args, name):
         threading.Thread(target=self.run_commands_thread, args=[args, name]).start()
 
@@ -117,14 +105,13 @@ class TaskRunnerFrame(ctk.CTkFrame):
 
         # Generate a unique log file name with a timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")  # Format: YYYYMMDD_HHMMSS
-        log_file_path = f"{name}_{timestamp}.log"
+        log_file_path = f"{task_name_sanitize(name)}_{timestamp}.log"
 
         try:
             with open(log_file_path, "w") as log_file:  # Open log file for writing
                 for i, command in enumerate(commands):
                     try:
                         # Run the command and capture output and errors
-                        messagebox.showinfo("Warning", f"Running command '{command}'")
                         result = subprocess.run(
                             command,
                             shell=True,
@@ -136,7 +123,8 @@ class TaskRunnerFrame(ctk.CTkFrame):
 
                         if result.returncode != 0:
                             log_file.write(f"Command failed with exit code {result.returncode}.\n")
-                            messagebox.showerror("Error", f"Command '{command}' failed with exit code {result.returncode}.")
+                            messagebox.showerror("Error",
+                                                 f"Command '{command}' failed with exit code {result.returncode}.")
                             break
 
                         self.update_progress_bar(i + 1, len(commands))
@@ -159,11 +147,60 @@ class TaskRunnerFrame(ctk.CTkFrame):
                         break
 
                 else:
-                    messagebox.showinfo("Completed", f"Task {name} has been completed successfully.")
+                    if messagebox.askyesno("Completed", f"Task {name} has been completed successfully.\n"
+                                                        "Would you like to view the log output?"):
+                        with open(log_file_path, "r") as log_file:
+                            log_content = log_file.read()
+                        # Display the log content in a popup
+                        self.show_log_popup(log_content)
 
         finally:
             self.update_progress_bar(len(commands), len(commands))
             self.enable_buttons()
+
+    def show_log_popup(self, log_content):
+        """Display the log content in a modal, scrollable popup window using CustomTkinter."""
+        log_window = ctk.CTkToplevel(self)
+        log_window.title("Log Output")
+
+        # Center the popup in the parent window
+        parent_x = self.winfo_rootx()
+        parent_y = self.winfo_rooty()
+        parent_width = self.winfo_width()
+        parent_height = self.winfo_height()
+
+        popup_width = 600
+        popup_height = 400
+        position_x = parent_x + (parent_width - popup_width) // 2
+        position_y = parent_y + (parent_height - popup_height) // 2
+
+        log_window.geometry(f"{popup_width}x{popup_height}+{position_x}+{position_y}")
+
+        # Make the popup modal
+        log_window.transient(self)  # Set the popup as a child of the parent window
+        log_window.grab_set()  # Disable interaction with the parent window
+
+        # Create a frame to hold the Textbox and scrollbar
+        frame = ctk.CTkFrame(log_window)
+        frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Create the CTkTextbox
+        text_widget = ctk.CTkTextbox(frame, wrap="word", font=("Arial", 12))
+        text_widget.insert("0.0", log_content)  # Insert the log content at the start
+        text_widget.configure(state="disabled")  # Make the textbox read-only
+        text_widget.pack(side="left", fill="both", expand=True)
+
+        # Add a scrollbar
+        scrollbar = ctk.CTkScrollbar(frame, command=text_widget.yview)
+        scrollbar.pack(side="right", fill="y")
+        text_widget.configure(yscrollcommand=scrollbar.set)
+
+        # Add a Close button
+        close_button = ctk.CTkButton(log_window, text="Close", command=log_window.destroy)
+        close_button.pack(pady=10)
+
+        # Wait for the popup to close
+        log_window.wait_window()
 
     def update_progress_bar(self, completed, total):
         if total > 0:
@@ -178,3 +215,6 @@ class TaskRunnerFrame(ctk.CTkFrame):
     def enable_buttons(self):
         for button in self.button_frame.winfo_children():
             button.configure(state="normal")
+
+    def on_show(self):
+       self.create_task_buttons()

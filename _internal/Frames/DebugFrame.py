@@ -5,7 +5,7 @@ import json
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import messagebox
-
+from SharedObjects import Settings
 
 class DebugFrame(ctk.CTkFrame):
     ORDER = 4
@@ -13,8 +13,7 @@ class DebugFrame(ctk.CTkFrame):
         super().__init__(parent)
 
         # Load the settings to get the root directory
-        self.settings = self.load_settings()
-        self.root_directory = self.settings.get("debugger_root_directory", "")  # Default to empty string if not set
+        self.settings_manager = Settings()
 
         # Title for the Debugger tool
         title_label = ctk.CTkLabel(self, text="Error Debugger", font=("Arial", 24))
@@ -24,13 +23,9 @@ class DebugFrame(ctk.CTkFrame):
         root_directory_label = ctk.CTkLabel(self, text="Root Directory:", font=("Arial", 14))
         root_directory_label.pack(pady=(10, 5), anchor="w", padx=20)  # Add some padding on top and bottom for spacing
 
+        self.root_directory = ""
         # Root Directory Entry
         self.root_directory_entry = ctk.CTkEntry(self, width=400)
-
-        # If root_directory is set, pre-fill the entry box; otherwise, the placeholder will be shown
-        if self.root_directory:
-            self.root_directory_entry.insert(0, self.root_directory)
-
         self.root_directory_entry.pack(padx=20, pady=10, fill='x')
 
         # Label for the Root Directory Entry
@@ -42,10 +37,10 @@ class DebugFrame(ctk.CTkFrame):
         self.error_message_entry.pack(padx=20, pady=10, fill="both", expand=True)
 
 
-
         # Submit Button
         submit_button = ctk.CTkButton(self, text="Submit", command=self.submit_error_message)
         submit_button.pack(pady=20)
+
 
     def submit_error_message(self):
         """Parse the error message and open relevant files in VS Code."""
@@ -59,7 +54,7 @@ class DebugFrame(ctk.CTkFrame):
         self.root_directory = self.root_directory_entry.get().strip()
 
         # Specify schema (you can change this to be dynamic if needed)
-        schema = "SCOTT"
+        schema = "TCTCD1"
 
         # Step 1: Parse the error message to extract file names and line numbers
         files_and_lines = parse_error_message(error_message, schema)
@@ -71,15 +66,13 @@ class DebugFrame(ctk.CTkFrame):
         # Step 2: Open the files in VS Code at the specified line numbers
         open_files_in_vscode(files_and_lines, self.root_directory)
 
-    def load_settings(self):
-        """Load settings from a JSON file."""
-        if os.path.exists("settings.json"):
-            with open("settings.json", "r") as file:
-                return json.load(file)
-        return {}
+    def on_show(self):
+        if not self.root_directory_entry.get().strip():
+            settings_root_directory = self.settings_manager.get("debugger_root_directory", "")
+            if settings_root_directory:
+                self.root_directory_entry.insert(0, settings_root_directory)
 
-
-def parse_error_message(error_message, schema="SCOTT"):
+def parse_error_message(error_message, schema="TCTCD1"):
     """Parse an error message to find the file names and line numbers."""
     pattern = re.compile(rf'ORA-06512: at "{schema}\.(.*?)", line (\d+)')
     matches = pattern.findall(error_message)
@@ -103,3 +96,5 @@ def open_files_in_vscode(files_and_lines, root_directory):
             subprocess.run(['code', '--goto', f"{file_path}:{line_number}"])
         else:
             print(f"File {file_name}.sql not found in {root_directory} or its subfolders.")
+
+

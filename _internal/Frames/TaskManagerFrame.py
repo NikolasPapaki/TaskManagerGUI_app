@@ -358,14 +358,18 @@ class TaskManagerFrame(ctk.CTkFrame):
 
     def generate_command_from_parts(self, parts):
         """Generate a command string from its dictionary parts."""
-        prefix = parts.get("prefix", "").strip()
-        path = parts.get("path", "").strip()
-        executable = parts.get("executable", "").strip()
-        arguments = parts.get("arguments", "").strip()
+        try:
+            prefix = parts.get("prefix", "").strip()
+            path = parts.get("path", "").strip()
+            executable = parts.get("executable", "").strip()
+            arguments = parts.get("arguments", "").strip()
 
-        # Construct the full command
-        if path:
-            command = f"{prefix} {os.path.join(path, executable)} {arguments}".strip()
-        else:
-            command = f"{prefix} {executable} {arguments}".strip()
-        return command
+            # Construct the full command
+            if path:
+                command = f"{prefix} {os.path.join(path, executable)} {arguments}".strip()
+            else:
+                command = f"{prefix} {executable} {arguments}".strip()
+            return command
+        except Exception as e:
+            return ""
+
